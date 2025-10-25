@@ -11,6 +11,7 @@
 #include "UnityAudioTrackSource.h"
 #include "UnityLogStream.h"
 #include "WebRTCPlugin.h"
+#include <system_wrappers/include/field_trial.h>
 
 namespace unity
 {
@@ -445,6 +446,26 @@ extern "C"
         {
             UnityLogStream::RemoveLogStream();
         }
+    }
+
+    static bool s_fieldTrialsInitialized = false;
+
+    UNITY_INTERFACE_EXPORT bool InitializeFieldTrials(const char* fieldTrials)
+    {
+        if (s_fieldTrialsInitialized)
+        {
+            DebugWarning("Field trials already initialized. Ignoring subsequent call.");
+            return false;
+        }
+
+        if (fieldTrials != nullptr && strlen(fieldTrials) > 0)
+        {
+            ::webrtc::field_trial::InitFieldTrialsFromString(fieldTrials);
+            DebugLog("Field trials initialized: %s", fieldTrials);
+        }
+
+        s_fieldTrialsInitialized = true;
+        return true;
     }
 
     UNITY_INTERFACE_EXPORT Context* ContextCreate(int uid)

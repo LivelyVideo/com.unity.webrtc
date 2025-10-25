@@ -737,6 +737,7 @@ namespace Unity.WebRTC
         private static Context s_context = null;
         private static SynchronizationContext s_syncContext;
         private static ILogger s_logger;
+        private static bool s_fieldTrialsInitialized = false;
 
         [RuntimeInitializeOnLoadMethod]
         static void RuntimeInitializeOnLoadMethod()
@@ -745,11 +746,31 @@ namespace Unity.WebRTC
             s_syncContext = new ExecutableUnitySynchronizationContext(SynchronizationContext.Current);
         }
 
-        internal static void InitializeInternal(bool limitTextureSize = true, bool enableNativeLog = false,
+        internal static void InitializeInternal(string fieldTrials = null, bool limitTextureSize = true, bool enableNativeLog = false,
             NativeLoggingSeverity nativeLoggingSeverity = NativeLoggingSeverity.Info)
         {
             if (s_context != null)
                 throw new InvalidOperationException("Already initialized WebRTC.");
+
+            // Initialize field trials FIRST, before any WebRTC objects are created
+            if (!string.IsNullOrEmpty(fieldTrials))
+            {
+                if (s_fieldTrialsInitialized)
+                {
+                    Logger.LogWarning("WebRTC", "Field trials already initialized. Cannot change after initialization.");
+                }
+                else if (ValidateFieldTrialsFormat(fieldTrials))
+                {
+                    NativeMethods.InitializeFieldTrials(fieldTrials);
+                    s_fieldTrialsInitialized = true;
+                }
+                else
+                {
+                    throw new ArgumentException(
+                        "Invalid field trials format. Must be: key1/value1/key2/value2/ (trailing slash required)",
+                        nameof(fieldTrials));
+                }
+            }
 
             NativeMethods.RegisterDebugLog(DebugLog, enableNativeLog, nativeLoggingSeverity);
             NativeMethods.StatsCollectorRegisterCallback(OnCollectStatsCallback);
@@ -918,6 +939,20 @@ namespace Unity.WebRTC
                 s_context = null;
             }
             NativeMethods.RegisterDebugLog(null, false, NativeLoggingSeverity.Info);
+        }
+
+        internal static bool ValidateFieldTrialsFormat(string fieldTrials)
+        {
+            if (string.IsNullOrEmpty(fieldTrials))
+                return true;
+
+            // Must end with /
+            if (!fieldTrials.EndsWith("/"))
+                return false;
+
+            // Must have even number of segments (key/value pairs)
+            var parts = fieldTrials.TrimEnd('/').Split('/');
+            return parts.Length % 2 == 0;
         }
 
         internal static RTCError ValidateTextureSize(int width, int height, RuntimePlatform platform)
@@ -1430,6 +1465,9 @@ namespace Unity.WebRTC
         [DllImport(WebRTC.Lib)]
         public static extern void RegisterDebugLog(DelegateDebugLog func, [MarshalAs(UnmanagedType.U1)] bool enableNativeLog,
             NativeLoggingSeverity nativeLoggingSeverity);
+        [DllImport(WebRTC.Lib)]
+        [return: MarshalAs(UnmanagedType.U1)]
+        public static extern bool InitializeFieldTrials(string fieldTrials);
         [DllImport(WebRTC.Lib)]
         public static extern IntPtr ContextCreate(int uid);
         [DllImport(WebRTC.Lib)]
