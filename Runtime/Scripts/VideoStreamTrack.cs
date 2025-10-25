@@ -503,7 +503,7 @@ namespace Unity.WebRTC
         }
     }
 
-    internal static class CopyTextureHelper
+    public static class CopyTextureHelper
     {
         // Blit parameter to flip vertically
         private static readonly Vector2 s_verticalScale = new Vector2(1f, -1f);

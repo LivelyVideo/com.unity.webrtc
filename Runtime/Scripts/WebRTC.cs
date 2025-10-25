@@ -746,7 +746,7 @@ namespace Unity.WebRTC
             s_syncContext = new ExecutableUnitySynchronizationContext(SynchronizationContext.Current);
         }
 
-        internal static void InitializeInternal(string fieldTrials = null, bool limitTextureSize = true, bool enableNativeLog = false,
+        public static void InitializeInternal(string fieldTrials = null, bool limitTextureSize = true, bool enableNativeLog = false,
             NativeLoggingSeverity nativeLoggingSeverity = NativeLoggingSeverity.Info)
         {
             if (s_context != null)
