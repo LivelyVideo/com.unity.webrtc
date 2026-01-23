@@ -91,9 +91,7 @@ target_compile_definitions(WebRTCLib PUBLIC $<$<CONFIG:Debug>:DEBUG>)
 set_target_properties(WebRTCLib PROPERTIES CXX_VISIBILITY_PRESET hidden
                                            VISIBILITY_INLINES_HIDDEN ON)
 
-if(iOS OR macOS)
-  target_sources(WebRTCLib PRIVATE ../libcxx/debug.cpp)
-else()
+if(NOT macOS AND NOT iOS)
   target_sources(WebRTCLib PRIVATE UnityVulkanInterfaceFunctions.cpp
                                    UnityVulkanInterfaceFunctions.h)
 endif()

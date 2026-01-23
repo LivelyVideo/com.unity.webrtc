@@ -5,6 +5,53 @@ using System.Runtime.InteropServices;
 namespace Unity.WebRTC
 {
     /// <summary>
+    ///     Specifies how the encoder should adapt when bandwidth is constrained.
+    /// </summary>
+    /// <remarks>
+    ///     When bandwidth is constrained and the RtpSender needs to choose between
+    ///     degrading resolution or degrading framerate, DegradationPreference indicates
+    ///     which is preferred. Only applicable for video tracks.
+    /// </remarks>
+    public enum RTCDegradationPreference
+    {
+        /// <summary>
+        ///     Maintain framerate and resolution regardless of video quality.
+        /// </summary>
+        /// <remarks>
+        ///     Frames may be dropped before encoding if necessary to avoid overusing
+        ///     network and encoder resources. This effectively disables adaptation.
+        /// </remarks>
+        MaintainFramerateAndResolution = 0,
+
+        /// <summary>
+        ///     Prioritize framerate over resolution when adapting.
+        /// </summary>
+        /// <remarks>
+        ///     When bandwidth is constrained, resolution will be reduced before framerate.
+        ///     Use this when smooth motion is more important than image detail.
+        /// </remarks>
+        MaintainFramerate = 1,
+
+        /// <summary>
+        ///     Prioritize resolution over framerate when adapting.
+        /// </summary>
+        /// <remarks>
+        ///     When bandwidth is constrained, framerate will be reduced before resolution.
+        ///     Use this when image detail is more important than smooth motion.
+        /// </remarks>
+        MaintainResolution = 2,
+
+        /// <summary>
+        ///     Balance between framerate and resolution when adapting.
+        /// </summary>
+        /// <remarks>
+        ///     The encoder will try to strike a pleasing balance between frame rate
+        ///     and resolution based on the content and network conditions.
+        /// </remarks>
+        Balanced = 3
+    }
+
+    /// <summary>
     ///     Represents the parameters for a codec used to encode the track's media.
     /// </summary>
     /// <remarks>

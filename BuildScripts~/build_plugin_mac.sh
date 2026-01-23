@@ -24,5 +24,5 @@ rm -rf "$DYLIB_FILE"
 
 # Build UnityRenderStreaming Plugin
 cd "$SOLUTION_DIR"
-cmake --preset=macos -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE
+cmake --preset=macos -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 cmake --build --preset=release-macos --target=WebRTCPlugin

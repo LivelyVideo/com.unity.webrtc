@@ -1351,6 +1351,41 @@ extern "C"
         sender->SetEncoderToPacketizerFrameTransformer(rtc::scoped_refptr<FrameTransformerInterface>(transformer));
     }
 
+    // DegradationPreference enum values matching C# RTCDegradationPreference
+    // 0 = MaintainFramerateAndResolution
+    // 1 = MaintainFramerate
+    // 2 = MaintainResolution
+    // 3 = Balanced
+    // -1 = not set (optional is empty)
+
+    UNITY_INTERFACE_EXPORT int SenderGetDegradationPreference(RtpSenderInterface* sender)
+    {
+        const RtpParameters params = sender->GetParameters();
+        if (!params.degradation_preference.has_value())
+        {
+            return -1; // Not set
+        }
+        return static_cast<int>(params.degradation_preference.value());
+    }
+
+    UNITY_INTERFACE_EXPORT RTCErrorType SenderSetDegradationPreference(RtpSenderInterface* sender, int preference)
+    {
+        RtpParameters params = sender->GetParameters();
+
+        if (preference < 0)
+        {
+            // Clear the degradation preference (set to nullopt)
+            params.degradation_preference = absl::nullopt;
+        }
+        else
+        {
+            params.degradation_preference = static_cast<DegradationPreference>(preference);
+        }
+
+        const ::webrtc::RTCError error = sender->SetParameters(params);
+        return error.type();
+    }
+
     UNITY_INTERFACE_EXPORT MediaStreamTrackInterface* ReceiverGetTrack(RtpReceiverInterface* receiver)
     {
         return receiver->track().get();
