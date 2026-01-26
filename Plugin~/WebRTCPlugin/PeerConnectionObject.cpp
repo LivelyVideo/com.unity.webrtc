@@ -9,6 +9,24 @@ namespace unity
 {
 namespace webrtc
 {
+    TargetTransferRateObserverImpl::TargetTransferRateObserverImpl(PeerConnectionObject* owner)
+        : owner_(owner) {}
+
+    void TargetTransferRateObserverImpl::OnTargetTransferRate(webrtc::TargetTransferRate rate)
+    {
+        if (owner_ && owner_->onTargetTransferRate)
+        {
+            uint32_t targetBps = static_cast<uint32_t>(rate.target_rate.bps());
+            uint32_t stableBps = static_cast<uint32_t>(rate.stable_target_rate.bps());
+            uint32_t rttMs = rate.network_estimate.round_trip_time.IsPlusInfinity()
+                ? 0 : static_cast<uint32_t>(rate.network_estimate.round_trip_time.ms());
+            float lossRatio = rate.network_estimate.loss_rate_ratio;
+            owner_->onTargetTransferRate(owner_, targetBps, stableBps, rttMs, lossRatio);
+        }
+    }
+
+    void TargetTransferRateObserverImpl::OnStartRateUpdate(webrtc::DataRate) {}
+
     webrtc::SdpType ConvertSdpType(RTCSdpType type)
     {
         switch (type)
@@ -176,6 +194,7 @@ namespace webrtc
             onDataChannel = nullptr;
             onRenegotiationNeeded = nullptr;
             onTrack = nullptr;
+            onTargetTransferRate = nullptr;
 
             connection->Close();
         }
@@ -310,6 +329,72 @@ namespace webrtc
         out.copy(desc.sdp, out.size());
         desc.sdp[out.size()] = '\0';
         return true;
+    }
+
+    void PeerConnectionObject::RegisterOnTargetTransferRate(DelegateOnTargetTransferRate callback)
+    {
+        onTargetTransferRate = callback;
+        // Note: The observer registration is deferred until TryRegisterTargetTransferRateObserver()
+        // is called after the connection is established. This avoids crashes from accessing
+        // internal APIs before the call is ready.
+    }
+
+    bool PeerConnectionObject::TryRegisterTargetTransferRateObserver()
+    {
+        // DISABLED: Accessing PeerConnectionInternal and call_ptr() causes crashes on iOS.
+        // The internal WebRTC APIs are not safe to access from the Unity plugin.
+        // This feature requires an alternative implementation approach.
+        //
+        // Returning false indicates the observer was not registered.
+        // The C# side will fall back to polling-based stats collection.
+        DebugLog("TryRegisterTargetTransferRateObserver: feature disabled - internal API access causes crashes");
+        return false;
+
+        /*
+        if (!onTargetTransferRate || !connection)
+        {
+            return false;
+        }
+
+        // Check if connection is in a valid state
+        auto state = connection->peer_connection_state();
+        if (state != webrtc::PeerConnectionInterface::PeerConnectionState::kConnected &&
+            state != webrtc::PeerConnectionInterface::PeerConnectionState::kConnecting)
+        {
+            return false;
+        }
+
+        if (!targetTransferRateObserver_)
+        {
+            targetTransferRateObserver_ = std::make_unique<TargetTransferRateObserverImpl>(this);
+        }
+
+        // Try to access internal APIs - this should be safe now that the call is established
+        auto* internal = static_cast<webrtc::PeerConnectionInternal*>(connection.get());
+        if (!internal)
+        {
+            DebugLog("TryRegisterTargetTransferRateObserver: internal cast failed");
+            return false;
+        }
+
+        auto* call = internal->call_ptr();
+        if (!call)
+        {
+            DebugLog("TryRegisterTargetTransferRateObserver: call_ptr is null");
+            return false;
+        }
+
+        auto* transport = call->GetTransportControllerSend();
+        if (!transport)
+        {
+            DebugLog("TryRegisterTargetTransferRateObserver: transport controller is null");
+            return false;
+        }
+
+        transport->RegisterTargetTransferRateObserver(targetTransferRateObserver_.get());
+        DebugLog("TryRegisterTargetTransferRateObserver: observer registered successfully");
+        return true;
+        */
     }
 } // end namespace webrtc
 } // end namespace unity

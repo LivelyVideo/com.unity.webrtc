@@ -1,6 +1,8 @@
 #pragma once
 
 #include <api/peer_connection_interface.h>
+#include <api/transport/network_control.h>
+#include <pc/peer_connection_internal.h>
 
 #include "DataChannelObject.h"
 #include "PeerConnectionStatsCollectorCallback.h"
@@ -27,6 +29,23 @@ namespace webrtc
     using DelegateOnRenegotiationNeeded = void (*)(PeerConnectionObject*);
     using DelegateOnTrack = void (*)(PeerConnectionObject*, RtpTransceiverInterface*);
     using DelegateOnRemoveTrack = void (*)(PeerConnectionObject*, RtpReceiverInterface*);
+
+    // Target transfer rate callback for push-based BWE updates
+    using DelegateOnTargetTransferRate = void (*)(
+        PeerConnectionObject*, uint32_t targetBps, uint32_t stableBps, uint32_t rttMs, float lossRatio);
+
+    // Forward declaration
+    class PeerConnectionObject;
+
+    class TargetTransferRateObserverImpl : public webrtc::TargetTransferRateObserver
+    {
+    public:
+        explicit TargetTransferRateObserverImpl(PeerConnectionObject* owner);
+        void OnTargetTransferRate(webrtc::TargetTransferRate rate) override;
+        void OnStartRateUpdate(webrtc::DataRate rate) override;
+    private:
+        PeerConnectionObject* owner_;
+    };
 
     class PeerConnectionObject : public PeerConnectionObserver
     {
@@ -71,6 +90,8 @@ namespace webrtc
         void RegisterOnRenegotiationNeeded(DelegateOnRenegotiationNeeded callback) { onRenegotiationNeeded = callback; }
         void RegisterOnTrack(DelegateOnTrack callback) { onTrack = callback; }
         void RegisterOnRemoveTrack(DelegateOnRemoveTrack callback) { onRemoveTrack = callback; }
+        void RegisterOnTargetTransferRate(DelegateOnTargetTransferRate callback);
+        bool TryRegisterTargetTransferRateObserver();
 
         // webrtc::PeerConnectionObserver
         // Triggered when the SignalingState changed.
@@ -122,10 +143,12 @@ namespace webrtc
         DelegateOnRenegotiationNeeded onRenegotiationNeeded = nullptr;
         DelegateOnTrack onTrack = nullptr;
         DelegateOnRemoveTrack onRemoveTrack = nullptr;
+        DelegateOnTargetTransferRate onTargetTransferRate = nullptr;
         rtc::scoped_refptr<PeerConnectionInterface> connection = nullptr;
 
     private:
         Context& context;
+        std::unique_ptr<TargetTransferRateObserverImpl> targetTransferRateObserver_;
     };
 
 } // end namespace webrtc

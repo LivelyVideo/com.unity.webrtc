@@ -1099,6 +1099,17 @@ extern "C"
         obj->RegisterOnRemoveTrack(callback);
     }
 
+    UNITY_INTERFACE_EXPORT void PeerConnectionRegisterOnTargetTransferRate(
+        PeerConnectionObject* obj, DelegateOnTargetTransferRate callback)
+    {
+        obj->RegisterOnTargetTransferRate(callback);
+    }
+
+    UNITY_INTERFACE_EXPORT bool PeerConnectionTryRegisterTargetTransferRateObserver(PeerConnectionObject* obj)
+    {
+        return obj->TryRegisterTargetTransferRateObserver();
+    }
+
     UNITY_INTERFACE_EXPORT bool
     TransceiverGetCurrentDirection(RtpTransceiverInterface* transceiver, RtpTransceiverDirection* direction)
     {

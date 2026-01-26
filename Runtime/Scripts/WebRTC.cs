@@ -1420,6 +1420,9 @@ namespace Unity.WebRTC
     internal delegate void DelegateVideoFrameResize(IntPtr renderer, int width, int height);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal delegate void DelegateTransformedFrame(IntPtr transform, IntPtr frame);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    internal delegate void DelegateNativeOnTargetTransferRate(
+        IntPtr ptr, uint targetBps, uint stableBps, uint rttMs, float lossRatio);
 
     internal static class NativeMethods
     {
@@ -1582,6 +1585,11 @@ namespace Unity.WebRTC
         public static extern void PeerConnectionRegisterOnTrack(IntPtr ptr, DelegateNativeOnTrack callback);
         [DllImport(WebRTC.Lib)]
         public static extern void PeerConnectionRegisterOnRemoveTrack(IntPtr ptr, DelegateNativeOnRemoveTrack callback);
+        [DllImport(WebRTC.Lib)]
+        public static extern void PeerConnectionRegisterOnTargetTransferRate(IntPtr ptr, DelegateNativeOnTargetTransferRate callback);
+        [DllImport(WebRTC.Lib)]
+        [return: MarshalAs(UnmanagedType.U1)]
+        public static extern bool PeerConnectionTryRegisterTargetTransferRateObserver(IntPtr ptr);
         [DllImport(WebRTC.Lib)]
         [return: MarshalAs(UnmanagedType.U1)]
         public static extern bool TransceiverGetCurrentDirection(IntPtr transceiver, out RTCRtpTransceiverDirection direction);

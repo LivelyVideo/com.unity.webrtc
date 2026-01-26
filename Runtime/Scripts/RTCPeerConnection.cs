@@ -138,6 +138,65 @@ namespace Unity.WebRTC
     /// <seealso cref="RTCTrackEvent" />
     public delegate void DelegateOnTrack(RTCTrackEvent e);
 
+    /// <summary>
+    ///     Contains bandwidth estimation data from the native libwebrtc transport controller.
+    /// </summary>
+    /// <remarks>
+    ///     This event provides push-based bandwidth estimation updates, enabling real-time
+    ///     adaptation without polling. The data comes from the GCC (Google Congestion Control)
+    ///     algorithm running in the native WebRTC stack.
+    /// </remarks>
+    public class RTCTargetTransferRateEvent
+    {
+        /// <summary>
+        ///     Target bitrate from GCC bandwidth estimator in bits per second.
+        /// </summary>
+        public uint TargetBitrateBps { get; }
+
+        /// <summary>
+        ///     Conservative/stable target bitrate in bits per second.
+        /// </summary>
+        public uint StableTargetBitrateBps { get; }
+
+        /// <summary>
+        ///     Estimated round-trip time in milliseconds. Returns 0 if unavailable.
+        /// </summary>
+        public uint RoundTripTimeMs { get; }
+
+        /// <summary>
+        ///     Estimated packet loss ratio (0.0-1.0).
+        /// </summary>
+        public float LossRateRatio { get; }
+
+        internal RTCTargetTransferRateEvent(uint target, uint stable, uint rtt, float loss)
+        {
+            TargetBitrateBps = target;
+            StableTargetBitrateBps = stable;
+            RoundTripTimeMs = rtt;
+            LossRateRatio = loss;
+        }
+    }
+
+    /// <summary>
+    ///     Delegate to be called when bandwidth estimation updates are available.
+    /// </summary>
+    /// <remarks>
+    ///     This delegate is called when the native WebRTC transport controller provides
+    ///     push-based bandwidth estimation updates.
+    /// </remarks>
+    /// <param name="e">`RTCTargetTransferRateEvent` object containing BWE data.</param>
+    /// <example>
+    ///     <code lang="cs"><![CDATA[
+    ///         peerConnection.OnTargetTransferRate = e =>
+    ///         {
+    ///             Debug.Log($"BWE: {e.TargetBitrateBps / 1000} kbps, RTT: {e.RoundTripTimeMs} ms");
+    ///             if (e.LossRateRatio > 0.05f)
+    ///                 Debug.LogWarning($"High loss: {e.LossRateRatio * 100:F1}%");
+    ///         }
+    ///     ]]></code>
+    /// </example>
+    /// <seealso cref="RTCTargetTransferRateEvent" />
+    public delegate void DelegateOnTargetTransferRate(RTCTargetTransferRateEvent e);
 
     internal delegate void DelegateSetSessionDescSuccess();
     internal delegate void DelegateSetSessionDescFailure(RTCError error);
@@ -404,6 +463,106 @@ namespace Unity.WebRTC
         /// <seealso cref="RTCTrackEvent"/>
         public DelegateOnTrack OnTrack { get; set; }
 
+        /// <summary>
+        ///     Delegate to be called when bandwidth estimation updates are available from the native transport controller.
+        /// </summary>
+        /// <remarks>
+        ///     This provides push-based bandwidth estimation updates without polling, enabling
+        ///     real-time adaptation to network conditions. The callback fires whenever the
+        ///     GCC (Google Congestion Control) algorithm updates its bandwidth estimate.
+        ///     Note: Requires native plugin with OnTargetTransferRate support. Falls back gracefully
+        ///     if the native function is not available.
+        /// </remarks>
+        /// <example>
+        ///     <code lang="cs"><![CDATA[
+        ///         peerConnection.OnTargetTransferRate = e =>
+        ///         {
+        ///             Debug.Log($"BWE: {e.TargetBitrateBps / 1000} kbps");
+        ///             if (e.TargetBitrateBps < currentBitrate)
+        ///                 adaptationPolicy.OnBandwidthDecreased(e.TargetBitrateBps);
+        ///         }
+        ///     ]]></code>
+        /// </example>
+        /// <seealso cref="RTCTargetTransferRateEvent"/>
+        public DelegateOnTargetTransferRate OnTargetTransferRate
+        {
+            get => onTargetTransferRate;
+            set
+            {
+                onTargetTransferRate = value;
+                // Lazily register the native callback when first set
+                if (value != null && !targetTransferRateCallbackRegistered)
+                {
+                    try
+                    {
+                        NativeMethods.PeerConnectionRegisterOnTargetTransferRate(GetSelfOrThrow(), PCOnTargetTransferRate);
+                        targetTransferRateCallbackRegistered = true;
+                    }
+                    catch (System.EntryPointNotFoundException)
+                    {
+                        // Native plugin doesn't have OnTargetTransferRate support
+                        UnityEngine.Debug.LogWarning("[WebRTC] OnTargetTransferRate not available - native plugin needs to be rebuilt");
+                    }
+                    catch (System.DllNotFoundException)
+                    {
+                        // Native plugin not found
+                        UnityEngine.Debug.LogWarning("[WebRTC] Native plugin not found for OnTargetTransferRate");
+                    }
+                }
+            }
+        }
+        private DelegateOnTargetTransferRate onTargetTransferRate;
+        private bool targetTransferRateCallbackRegistered = false;
+        private bool targetTransferRateObserverActivated = false;
+
+        /// <summary>
+        ///     Attempts to activate the target transfer rate observer.
+        ///     Should be called after the connection is established (Connected state).
+        /// </summary>
+        /// <returns>True if the observer was successfully activated, false otherwise.</returns>
+        /// <remarks>
+        ///     The observer can only be activated after the WebRTC call is set up.
+        ///     Call this method when OnConnectionStateChange reports Connected.
+        /// </remarks>
+        public bool TryActivateTargetTransferRateObserver()
+        {
+            if (targetTransferRateObserverActivated)
+            {
+                return true; // Already activated
+            }
+
+            if (!targetTransferRateCallbackRegistered || onTargetTransferRate == null)
+            {
+                return false; // Callback not set up
+            }
+
+            try
+            {
+                bool success = NativeMethods.PeerConnectionTryRegisterTargetTransferRateObserver(GetSelfOrThrow());
+                if (success)
+                {
+                    targetTransferRateObserverActivated = true;
+                    UnityEngine.Debug.Log("[WebRTC] TargetTransferRate observer activated successfully");
+                }
+                return success;
+            }
+            catch (System.EntryPointNotFoundException)
+            {
+                UnityEngine.Debug.LogWarning("[WebRTC] TryActivateTargetTransferRateObserver not available - native plugin needs to be rebuilt");
+                return false;
+            }
+            catch (System.DllNotFoundException)
+            {
+                UnityEngine.Debug.LogWarning("[WebRTC] Native plugin not found for TryActivateTargetTransferRateObserver");
+                return false;
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogWarning($"[WebRTC] TryActivateTargetTransferRateObserver failed: {ex.Message}");
+                return false;
+            }
+        }
+
         internal IntPtr GetSelfOrThrow()
         {
             if (self == IntPtr.Zero)
@@ -518,6 +677,19 @@ namespace Unity.WebRTC
                         receiverPtr, _ptr => new RTCRtpReceiver(_ptr, connection));
                     if (receiver != null)
                         connection.cacheTracks.Remove(receiver.Track);
+                }
+            });
+        }
+
+        [AOT.MonoPInvokeCallback(typeof(DelegateNativeOnTargetTransferRate))]
+        static void PCOnTargetTransferRate(IntPtr ptr, uint target, uint stable, uint rtt, float loss)
+        {
+            WebRTC.Sync(ptr, () =>
+            {
+                if (WebRTC.Table[ptr] is RTCPeerConnection connection)
+                {
+                    connection.OnTargetTransferRate?.Invoke(
+                        new RTCTargetTransferRateEvent(target, stable, rtt, loss));
                 }
             });
         }
@@ -652,6 +824,8 @@ namespace Unity.WebRTC
             NativeMethods.PeerConnectionRegisterOnRenegotiationNeeded(self, PCOnNegotiationNeeded);
             NativeMethods.PeerConnectionRegisterOnTrack(self, PCOnTrack);
             NativeMethods.PeerConnectionRegisterOnRemoveTrack(self, PCOnRemoveTrack);
+            // Note: OnTargetTransferRate is registered lazily when the property is set
+            // to maintain backwards compatibility with older native plugins
         }
 
         /// <summary>
