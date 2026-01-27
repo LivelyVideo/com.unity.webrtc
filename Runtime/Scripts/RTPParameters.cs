@@ -128,6 +128,33 @@ namespace Unity.WebRTC
         public string rid;
 
         /// <summary>
+        ///     Allow dynamic frame length for audio (Opus ptime).
+        /// </summary>
+        /// <remarks>
+        ///     When true, the Opus encoder can adjust frame duration based on network conditions,
+        ///     improving audio quality under congestion.
+        /// </remarks>
+        public bool? adaptivePtime;
+
+        /// <summary>
+        ///     Number of temporal layers for VP8/VP9 encoding.
+        /// </summary>
+        /// <remarks>
+        ///     Values: 1-4 for VP8, 1-3 for VP9. Higher values enable smoother degradation
+        ///     by allowing receivers to drop higher temporal layers under congestion.
+        /// </remarks>
+        public int? numTemporalLayers;
+
+        /// <summary>
+        ///     Scalability mode for temporal/spatial SVC.
+        /// </summary>
+        /// <remarks>
+        ///     Common values: "L1T1" (no SVC), "L1T2" (2 temporal layers), "L1T3" (3 temporal layers).
+        ///     See https://www.w3.org/TR/webrtc-svc/#scalabilitymodes for full list.
+        /// </remarks>
+        public string scalabilityMode;
+
+        /// <summary>
         ///     Creates a new RTCRtpEncodingParameters object.
         /// </summary>
         /// <remarks>
@@ -149,6 +176,10 @@ namespace Unity.WebRTC
             scaleResolutionDownBy = parameter.scaleResolutionDownBy;
             if (parameter.rid != IntPtr.Zero)
                 rid = parameter.rid.AsAnsiStringWithFreeMem();
+            adaptivePtime = parameter.adaptivePtime;
+            numTemporalLayers = parameter.numTemporalLayers;
+            if (parameter.scalabilityMode != IntPtr.Zero)
+                scalabilityMode = parameter.scalabilityMode.AsAnsiStringWithFreeMem();
         }
 
         internal void CopyInternal(ref RTCRtpEncodingParametersInternal instance)
@@ -159,6 +190,11 @@ namespace Unity.WebRTC
             instance.maxFramerate = maxFramerate;
             instance.scaleResolutionDownBy = scaleResolutionDownBy;
             instance.rid = string.IsNullOrEmpty(rid) ? IntPtr.Zero : Marshal.StringToCoTaskMemAnsi(rid);
+            instance.adaptivePtime = adaptivePtime;
+            instance.numTemporalLayers = numTemporalLayers;
+            instance.scalabilityMode = string.IsNullOrEmpty(scalabilityMode)
+                ? IntPtr.Zero
+                : Marshal.StringToCoTaskMemAnsi(scalabilityMode);
         }
 
         internal RTCRtpEncodingParametersInternal Cast()
@@ -170,7 +206,12 @@ namespace Unity.WebRTC
                 minBitrate = this.minBitrate,
                 maxFramerate = this.maxFramerate,
                 scaleResolutionDownBy = this.scaleResolutionDownBy,
-                rid = string.IsNullOrEmpty(this.rid) ? IntPtr.Zero : Marshal.StringToCoTaskMemAnsi(this.rid)
+                rid = string.IsNullOrEmpty(this.rid) ? IntPtr.Zero : Marshal.StringToCoTaskMemAnsi(this.rid),
+                adaptivePtime = this.adaptivePtime,
+                numTemporalLayers = this.numTemporalLayers,
+                scalabilityMode = string.IsNullOrEmpty(this.scalabilityMode)
+                    ? IntPtr.Zero
+                    : Marshal.StringToCoTaskMemAnsi(this.scalabilityMode)
             };
         }
     }
@@ -570,6 +611,9 @@ namespace Unity.WebRTC
         public OptionalUint maxFramerate;
         public OptionalDouble scaleResolutionDownBy;
         public IntPtr rid;
+        public OptionalBool adaptivePtime;
+        public OptionalInt numTemporalLayers;
+        public IntPtr scalabilityMode;
     }
 
     [StructLayout(LayoutKind.Sequential)]

@@ -519,6 +519,9 @@ extern "C"
         Optional<uint32_t> maxFramerate;
         Optional<double> scaleResolutionDownBy;
         char* rid;
+        Optional<bool> adaptivePtime;
+        Optional<int32_t> numTemporalLayers;
+        char* scalabilityMode;
 
         RTCRtpEncodingParameters& operator=(const RtpEncodingParameters& obj)
         {
@@ -528,6 +531,11 @@ extern "C"
             maxFramerate = obj.max_framerate;
             scaleResolutionDownBy = obj.scale_resolution_down_by;
             rid = ConvertString(obj.rid);
+            adaptivePtime = obj.adaptive_ptime;
+            numTemporalLayers = obj.num_temporal_layers;
+            scalabilityMode = obj.scalability_mode.has_value()
+                ? ConvertString(obj.scalability_mode.value())
+                : nullptr;
             return *this;
         }
 
@@ -541,6 +549,10 @@ extern "C"
             dst.scale_resolution_down_by = ConvertOptional(scaleResolutionDownBy);
             if (rid != nullptr)
                 dst.rid = std::string(rid);
+            dst.adaptive_ptime = adaptivePtime.hasValue ? adaptivePtime.value : false;
+            dst.num_temporal_layers = static_cast<absl::optional<int>>(ConvertOptional(numTemporalLayers));
+            if (scalabilityMode != nullptr)
+                dst.scalability_mode = std::string(scalabilityMode);
             return dst;
         }
     };
@@ -1284,6 +1296,13 @@ extern "C"
             dst.encodings[i].scale_resolution_down_by = ConvertOptional(src->encodings[i].scaleResolutionDownBy);
             if (src->encodings[i].rid != nullptr)
                 dst.encodings[i].rid = std::string(src->encodings[i].rid);
+            dst.encodings[i].adaptive_ptime = src->encodings[i].adaptivePtime.hasValue
+                ? src->encodings[i].adaptivePtime.value
+                : false;
+            dst.encodings[i].num_temporal_layers =
+                static_cast<absl::optional<int>>(ConvertOptional(src->encodings[i].numTemporalLayers));
+            if (src->encodings[i].scalabilityMode != nullptr)
+                dst.encodings[i].scalability_mode = std::string(src->encodings[i].scalabilityMode);
         }
         const ::webrtc::RTCError error = sender->SetParameters(dst);
         return error.type();
