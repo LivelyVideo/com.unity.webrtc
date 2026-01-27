@@ -531,7 +531,8 @@ extern "C"
             maxFramerate = obj.max_framerate;
             scaleResolutionDownBy = obj.scale_resolution_down_by;
             rid = ConvertString(obj.rid);
-            adaptivePtime = obj.adaptive_ptime;
+            adaptivePtime.hasValue = true;
+            adaptivePtime.value = obj.adaptive_ptime;
             numTemporalLayers = obj.num_temporal_layers;
             scalabilityMode = obj.scalability_mode.has_value()
                 ? ConvertString(obj.scalability_mode.value())
